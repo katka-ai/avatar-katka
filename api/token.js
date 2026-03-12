@@ -46,6 +46,9 @@ export default async function handler(req) {
             similarity_boost: 0.8,
             speed: 1.0,
           },
+          stt_config: {
+            provider: 'deepgram',
+          },
         },
       }),
     });
