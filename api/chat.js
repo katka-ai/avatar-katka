@@ -105,7 +105,7 @@ async function searchKB(queryEmb, supabaseUrl, serviceKey) {
   }).filter(Boolean);
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 3).filter(r => r.similarity > 0.35);
+  return scored.slice(0, 8).filter(r => r.similarity > 0.35);
 }
 
 async function callClaude(systemPrompt, userContent, apiKey) {
@@ -117,8 +117,8 @@ async function callClaude(systemPrompt, userContent, apiKey) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 150,
+      model: 'claude-opus-4-6',
+      max_tokens: 200,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
