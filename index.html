@@ -634,7 +634,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { LiveAvatarSession, SessionEvent, SessionState, AgentEventsEnum }
+    import { LiveAvatarSession, SessionEvent, SessionState, AgentEventsEnum, VoiceChatEvent, VoiceChatState }
       from 'https://esm.sh/@heygen/liveavatar-web-sdk@0.0.10';
 
     const $ = (sel) => document.querySelector(sel);
@@ -658,7 +658,7 @@
       statusText.textContent = text;
     }
 
-    function showToast(msg, ms = 5000) {
+    function showToast(msg, ms = 6000) {
       toastEl.textContent = msg;
       toastEl.classList.add('visible');
       setTimeout(() => toastEl.classList.remove('visible'), ms);
@@ -668,7 +668,7 @@
       const r = await fetch('/api/token', { method: 'POST' });
       if (!r.ok) throw new Error('Token error: ' + r.status);
       const data = await r.json();
-      console.log('[avatar] Token response keys:', Object.keys(data));
+      console.log('[avatar] Token keys:', Object.keys(data));
       return data;
     }
 
@@ -682,60 +682,98 @@
       try {
         const tokenData = await fetchToken();
         const token = tokenData.data?.session_token || tokenData.session_token || tokenData.token;
-        if (!token) {
-          console.error('[avatar] No token found in:', tokenData);
-          throw new Error('No session token in response');
-        }
-        console.log('[avatar] Session token obtained, length:', token.length);
+        if (!token) throw new Error('No session token in response');
+        console.log('[avatar] Token OK, len:', token.length);
 
         session = new LiveAvatarSession(token, {
           voiceChat: true,
         });
 
-        session.on(SessionEvent.SESSION_STREAM_READY, () => {
-          console.log('[avatar] Stream ready');
+        session.on(SessionEvent.SESSION_STREAM_READY, async () => {
+          console.log('[avatar] Stream ready — attaching video');
           session.attach(videoEl);
           videoEl.classList.add('active');
           connectingOv.classList.remove('visible');
           setStatus('live', 'Live');
-          session.voiceChat.unmute();
-          micMuted = false;
-          btnMic.classList.add('mic-active');
+
+          try {
+            console.log('[avatar] Starting voiceChat...');
+            await session.voiceChat.start();
+            console.log('[avatar] voiceChat started, unmuting...');
+            await session.voiceChat.unmute();
+            micMuted = false;
+            btnMic.classList.add('mic-active');
+            console.log('[avatar] Mic unmuted — ready to listen');
+            setStatus('live', 'Mikrofon zapnut');
+          } catch (vcErr) {
+            console.error('[avatar] voiceChat start/unmute error:', vcErr);
+            showToast('Chyba mikrofonu: ' + (vcErr.message || vcErr));
+          }
+
+          setTimeout(async () => {
+            try {
+              console.log('[avatar] Sending welcome repeat...');
+              await session.repeat('Ahoj! Jsem Katka. Zeptej se mě na cokoliv o AI nebo chatbotech.');
+              console.log('[avatar] Welcome sent');
+            } catch (e) {
+              console.error('[avatar] repeat() error:', e);
+            }
+          }, 2000);
         });
 
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
-          console.log('[avatar] State:', state);
-          if (state === SessionState.DISCONNECTED) {
-            endSession();
-          }
+          console.log('[avatar] State changed:', state);
+          if (state === SessionState.DISCONNECTED) endSession();
         });
 
         session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
+          console.log('[avatar] Avatar speaking...');
           speakingBadge.classList.add('visible');
         });
-
         session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => {
+          console.log('[avatar] Avatar stopped speaking');
           speakingBadge.classList.remove('visible');
         });
+        session.on(AgentEventsEnum.USER_SPEAK_STARTED, () => {
+          console.log('[avatar] User speaking detected!');
+          setStatus('live', 'Slyším tě…');
+        });
+        session.on(AgentEventsEnum.USER_SPEAK_ENDED, () => {
+          console.log('[avatar] User stopped speaking');
+          setStatus('live', 'Live');
+        });
 
-        console.log('[avatar] Starting session...');
+        if (session.voiceChat) {
+          session.voiceChat.on(VoiceChatEvent.STATE_CHANGED, (s) => {
+            console.log('[avatar] VoiceChat state:', s);
+          });
+          session.voiceChat.on(VoiceChatEvent.MUTED, () => {
+            console.log('[avatar] VoiceChat MUTED');
+          });
+          session.voiceChat.on(VoiceChatEvent.UNMUTED, () => {
+            console.log('[avatar] VoiceChat UNMUTED');
+          });
+        }
+
+        console.log('[avatar] Calling session.start()...');
         await session.start();
-        console.log('[avatar] Session started');
+        console.log('[avatar] session.start() resolved');
 
       } catch (err) {
-        console.error('[avatar] Start error:', err);
+        console.error('[avatar] FULL ERROR:', err);
         showToast('Nepodařilo se připojit: ' + (err.message || err));
         endSession();
       }
     }
 
     function endSession() {
+      micMuted = true;
+      btnMic.classList.remove('mic-active');
       if (session) {
+        try { session.voiceChat?.stop(); } catch (_) {}
         try { session.stop(); } catch (_) {}
         session = null;
       }
-      micMuted = true;
-      btnMic.classList.remove('mic-active');
       videoEl.classList.remove('active');
       speakingBadge.classList.remove('visible');
       connectingOv.classList.remove('visible');
@@ -745,16 +783,20 @@
       setStatus('', 'Offline');
     }
 
-    function toggleMic() {
-      if (!session) return;
-      if (micMuted) {
-        session.voiceChat.unmute();
-        micMuted = false;
-        btnMic.classList.add('mic-active');
-      } else {
-        session.voiceChat.mute();
-        micMuted = true;
-        btnMic.classList.remove('mic-active');
+    async function toggleMic() {
+      if (!session?.voiceChat) return;
+      try {
+        if (micMuted) {
+          await session.voiceChat.unmute();
+          micMuted = false;
+          btnMic.classList.add('mic-active');
+        } else {
+          await session.voiceChat.mute();
+          micMuted = true;
+          btnMic.classList.remove('mic-active');
+        }
+      } catch (e) {
+        console.error('[avatar] Mic toggle error:', e);
       }
     }
 
