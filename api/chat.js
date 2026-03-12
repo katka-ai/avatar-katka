@@ -85,7 +85,7 @@ async function callClaude(systemPrompt, userContent, apiKey) {
     },
     body: JSON.stringify({
       model: 'claude-3-haiku-20240307',
-      max_tokens: 80,
+      max_tokens: 150,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -97,7 +97,11 @@ async function callClaude(systemPrompt, userContent, apiKey) {
   }
 
   const data = await res.json();
-  return data.content[0].text;
+  let text = data.content[0].text;
+  text = text.replace(/[\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').replace(/[-*#>]+/g, '').trim();
+  const lastPunct = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
+  if (lastPunct > 20) text = text.slice(0, lastPunct + 1);
+  return text;
 }
 
 async function logConversation(supabaseUrl, serviceKey, conversationId, userMsg, assistantMsg) {
