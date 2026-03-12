@@ -36,28 +36,43 @@ async function generateEmbedding(text, apiKey) {
   return data.data[0].embedding;
 }
 
-async function searchKB(embedding, supabaseUrl, serviceKey) {
-  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/avatar_search_kb`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({
-      query_embedding: embedding,
-      match_threshold: 0.65,
-      match_count: 5,
-    }),
-  });
+function cosineSim(a, b) {
+  let dot = 0, magA = 0, magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error('[chat] Supabase KB search error:', res.status, err);
-    return [];
+let kbCache = null;
+let kbCacheTime = 0;
+const KB_CACHE_TTL = 5 * 60 * 1000;
+
+async function searchKB(queryEmb, supabaseUrl, serviceKey) {
+  if (!kbCache || Date.now() - kbCacheTime > KB_CACHE_TTL) {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/avatar_kb_documents?select=id,title,content,embedding&is_active=eq.true`,
+      { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
+    );
+    if (!res.ok) {
+      console.error('[chat] KB fetch error:', res.status);
+      return [];
+    }
+    kbCache = await res.json();
+    kbCacheTime = Date.now();
+    console.log(`[chat] KB loaded: ${kbCache.length} docs`);
   }
 
-  return res.json();
+  const scored = kbCache.map(doc => {
+    const emb = typeof doc.embedding === 'string' ? JSON.parse(doc.embedding) : doc.embedding;
+    if (!emb || emb.length !== queryEmb.length) return null;
+    return { title: doc.title, content: doc.content, similarity: cosineSim(queryEmb, emb) };
+  }).filter(Boolean);
+
+  scored.sort((a, b) => b.similarity - a.similarity);
+  return scored.slice(0, 5).filter(r => r.similarity > 0.6);
 }
 
 async function callClaude(systemPrompt, userContent, apiKey) {
