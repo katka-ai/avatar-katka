@@ -102,7 +102,7 @@ async function searchKB(queryEmb, supabaseUrl, serviceKey) {
   }).filter(Boolean);
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 8).filter(r => r.similarity > 0.35);
+  return scored.slice(0, 5).filter(r => r.similarity > 0.35);
 }
 
 function cleanText(text) {
@@ -184,7 +184,7 @@ function streamResponse(userContent, sources, userMessage, conversationId,
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 200,
+          max_tokens: 120,
           stream: true,
           system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: userContent }],
@@ -351,9 +351,10 @@ export default async function handler(req) {
       contextBlock = kbResults
         .map((doc, i) => {
           if (doc.title) sources.push(doc.title);
-          return `[${i + 1}] ${doc.title || 'Dokument'}\n${doc.content}`;
+          const short = doc.content.length > 400 ? doc.content.slice(0, 400) + '…' : doc.content;
+          return `[${i + 1}] ${doc.title || 'Dokument'}: ${short}`;
         })
-        .join('\n\n');
+        .join('\n');
     }
 
     const userContent = contextBlock
