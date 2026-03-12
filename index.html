@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Katka.ai — Pohovořte si se mnou</title>
+  <meta name="description" content="Digitální dvojče Katky Šumpíkové. Zeptejte se na AI chatboty, digitální zaměstnance a mou práci." />
+
+  <meta property="og:title" content="Katka.ai — Avatar" />
+  <meta property="og:description" content="Pohovořte si s Katkou o AI chatbotech a digitálních zaměstnancích." />
+  <meta property="og:image" content="https://katka.ai/og-image.png" />
+  <meta property="og:url" content="https://katka.ai/avatar" />
+
+  <link rel="icon" type="image/svg+xml" href="https://katka.ai/favicon.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    @font-face {
+      font-family: 'Clash Display';
+      src: url('https://cdn.fontshare.com/wf/HXPJYM46G2ULXQCMMBZMQHQR52TWWB5G/BSWQPPGLHXOQVR5JGOHKFG2KNWM4XWCL/UDPBHQNWRVQGHHYQ3QZJ2JDBLPGBJ3T5.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Clash Display';
+      src: url('https://cdn.fontshare.com/wf/HXPJYM46G2ULXQCMMBZMQHQR52TWWB5G/BSWQPPGLHXOQVR5JGOHKFG2KNWM4XWCL/6QZUQGRTK2IKF5FDJNHNQKL6GRP7CTJQ.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --void: #050A0E;
+      --void-light: #0A1118;
+      --lime: #BAFF00;
+      --lime-dim: rgba(186, 255, 0, 0.12);
+      --lime-glow: rgba(186, 255, 0, 0.35);
+      --violet: #BF00FF;
+      --cyan: #00F0FF;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --text: #E8ECF0;
+      --text-dim: #6B7D8D;
+      --red: #FF3B5C;
+      --red-glow: rgba(255, 59, 92, 0.35);
+      --font-display: 'Clash Display', sans-serif;
+      --font-body: 'Space Grotesk', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--void);
+      color: var(--text);
+      font-family: var(--font-body);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Landing Page ── */
+    .landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .landing::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(ellipse, var(--lime-glow) 0%, transparent 70%);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .landing-nav {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+    }
+
+    .landing-logo {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--lime);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .landing-back {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .landing-back:hover { color: var(--lime); }
+
+    .photo-wrap {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      margin-bottom: 32px;
+      flex-shrink: 0;
+    }
+
+    .photo-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--lime), var(--violet), var(--cyan), var(--lime));
+      opacity: 0.7;
+      filter: blur(6px);
+      animation: photoGlow 6s linear infinite;
+    }
+
+    @keyframes photoGlow {
+      to { filter: blur(10px); opacity: 0.5; }
+      50% { filter: blur(6px); opacity: 0.8; }
+    }
+
+    .photo-wrap img {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--void);
+      filter: saturate(0.85) contrast(1.05) brightness(0.95);
+    }
+
+    .online-dot {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      width: 18px;
+      height: 18px;
+      background: var(--lime);
+      border-radius: 50%;
+      border: 3px solid var(--void);
+      z-index: 2;
+      box-shadow: 0 0 12px var(--lime-glow);
+    }
+
+    .landing h1 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    .landing h1 span {
+      color: var(--lime);
+    }
+
+    .landing-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-dim);
+      max-width: 420px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+
+    .btn-connect {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      background: var(--lime);
+      color: var(--void);
+      border: none;
+      border-radius: 60px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 30px var(--lime-glow), 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .btn-connect:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 50px var(--lime-glow), 0 8px 30px rgba(0,0,0,0.4);
+    }
+
+    .btn-connect:active { transform: translateY(0); }
+
+    .btn-connect:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-connect svg { width: 20px; height: 20px; }
+
+    .landing-features {
+      display: flex;
+      gap: 32px;
+      margin-top: 48px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .feature-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--lime);
+      opacity: 0.6;
+    }
+
+    .landing-footer {
+      position: absolute;
+      bottom: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      opacity: 0.5;
+    }
+
+    .landing-footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+    .landing-footer a:hover { color: var(--lime); }
+
+    /* ── Avatar Session ── */
+    .session {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      position: relative;
+    }
+
+    .session.active {
+      display: flex;
+    }
+
+    .session-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .session-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .session-brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--glass-border);
+    }
+
+    .session-name {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .session-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .status-dot.live {
+      background: var(--lime);
+      box-shadow: 0 0 8px var(--lime-glow);
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 8px var(--lime-glow); }
+      50% { box-shadow: 0 0 16px var(--lime-glow); }
+    }
+
+    .video-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: var(--void-light);
+      margin: 0 12px;
+      border-radius: 20px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .video-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .video-area video.active { opacity: 1; }
+
+    .speaking-badge {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(5, 10, 14, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 30px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--lime);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .speaking-badge.visible { opacity: 1; }
+
+    .wave-bars {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 14px;
+    }
+    .wave-bars span {
+      display: block;
+      width: 3px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--lime);
+      animation: wave 0.8s ease-in-out infinite;
+    }
+    .wave-bars span:nth-child(2) { animation-delay: 0.1s; }
+    .wave-bars span:nth-child(3) { animation-delay: 0.2s; }
+    .wave-bars span:nth-child(4) { animation-delay: 0.3s; }
+
+    @keyframes wave {
+      0%, 100% { height: 4px; }
+      50% { height: 14px; }
+    }
+
+    .connecting-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: rgba(5, 10, 14, 0.8);
+      backdrop-filter: blur(8px);
+      border-radius: 20px;
+      z-index: 5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .connecting-overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--glass-border);
+      border-top-color: var(--lime);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .connecting-overlay p {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px 24px 24px;
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .ctrl-btn:hover {
+      border-color: var(--lime);
+      background: var(--lime-dim);
+      color: var(--lime);
+    }
+
+    .ctrl-btn svg { width: 22px; height: 22px; }
+
+    .ctrl-btn.mic-active {
+      background: var(--lime);
+      color: var(--void);
+      border-color: var(--lime);
+      box-shadow: 0 0 20px var(--lime-glow);
+      animation: mic-pulse 1.5s infinite;
+    }
+
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 16px var(--lime-glow); }
+      50% { box-shadow: 0 0 32px var(--lime-glow); }
+    }
+
+    .btn-end {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 59, 92, 0.3);
+      background: rgba(255, 59, 92, 0.12);
+      color: var(--red);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .btn-end:hover {
+      background: var(--red);
+      color: white;
+      border-color: var(--red);
+      box-shadow: 0 0 20px var(--red-glow);
+    }
+
+    .btn-end svg { width: 22px; height: 22px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(255, 59, 92, 0.12);
+      border: 1px solid rgba(255, 59, 92, 0.25);
+      backdrop-filter: blur(12px);
+      color: #FF8A9E;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+      z-index: 100;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .landing h1 { font-size: 1.6rem; }
+      .landing-subtitle { font-size: 0.95rem; }
+      .landing-features { gap: 16px; }
+      .photo-wrap { width: 110px; height: 110px; }
+      .photo-wrap img { width: 110px; height: 110px; }
+      .controls { padding: 12px 16px 20px; }
+      .ctrl-btn, .btn-end { width: 50px; height: 50px; }
+      .video-area { margin: 0 8px; border-radius: 16px; }
+      .session-header { padding: 12px 16px; }
+    }
+  </style>
+
+  <!-- LiveAvatar SDK -->
+  <script src="https://cdn.liveavatar.ai/sdk/web/index.js"></script>
+</head>
+<body>
+
+  <!-- ════ Landing Page ════ -->
+  <div class="landing" id="landing">
+    <nav class="landing-nav">
+      <a href="https://katka.ai" class="landing-logo">katka.ai</a>
+      <a href="https://katka.ai" class="landing-back">&larr; zpět na web</a>
+    </nav>
+
+    <div class="photo-wrap">
+      <img src="https://katka.ai/about-photo.jpg" alt="Katka Šumpíková" />
+      <div class="online-dot"></div>
+    </div>
+
+    <h1>Ahoj, jsem <span>Katka</span></h1>
+    <p class="landing-subtitle">
+      Stavím digitální zaměstnance — AI chatboty s osobností.
+      Zeptej se mého AI avatara na cokoliv o AI, chatbotech nebo mé práci.
+    </p>
+
+    <button class="btn-connect" id="btnConnect">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+      </svg>
+      Zahájit rozhovor
+    </button>
+
+    <div class="landing-features">
+      <div class="feature"><div class="feature-dot"></div>AI avatar, ne živá osoba</div>
+      <div class="feature"><div class="feature-dot"></div>Hlasově, česky</div>
+      <div class="feature"><div class="feature-dot"></div>Odpovědi z mé knowledge base</div>
+    </div>
+
+    <div class="landing-footer">
+      <a href="mailto:ja@katka.ai">ja@katka.ai</a> &middot; Powered by AI
+    </div>
+  </div>
+
+  <!-- ════ Avatar Session ════ -->
+  <div class="session" id="session">
+    <div class="session-header">
+      <div class="session-brand">
+        <img src="https://katka.ai/about-photo.jpg" alt="Katka" />
+        <span class="session-name">Katka Šumpíková</span>
+      </div>
+      <div class="session-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Připojuji…</span>
+      </div>
+    </div>
+
+    <div class="video-area">
+      <video id="avatarVideo" autoplay playsinline></video>
+
+      <div class="connecting-overlay" id="connectingOverlay">
+        <div class="spinner"></div>
+        <p>Připojuji se…</p>
+      </div>
+
+      <div class="speaking-badge" id="speakingBadge">
+        <div class="wave-bars">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        Katka mluví
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn" id="btnMic" title="Mikrofon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+
+      <button class="btn-end" id="btnEnd" title="Ukončit hovor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const $ = (sel) => document.querySelector(sel);
+      const landing      = $('#landing');
+      const sessionEl    = $('#session');
+      const videoEl      = $('#avatarVideo');
+      const connectingOv = $('#connectingOverlay');
+      const speakingBadge = $('#speakingBadge');
+      const btnConnect   = $('#btnConnect');
+      const btnMic       = $('#btnMic');
+      const btnEnd       = $('#btnEnd');
+      const statusDot    = $('#statusDot');
+      const statusText   = $('#statusText');
+      const toastEl      = $('#toast');
+
+      let session = null;
+      let sdk = null;
+      let conversationId = null;
+      let micOn = false;
+      let recognition = null;
+      let processing = false;
+      let speechDebounce = null;
+      let accumulatedTranscript = '';
+
+      const WELCOME = 'Ahoj, já jsem Katka. Stavím digitální zaměstnance — AI chatboty, kteří pracují jako vaši nejlepší lidé. Na co se chceš zeptat?';
+
+      function setStatus(state, text) {
+        statusDot.className = 'status-dot' + (state === 'live' ? ' live' : '');
+        statusText.textContent = text;
+      }
+
+      function showToast(msg, ms = 4000) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('visible');
+        setTimeout(() => toastEl.classList.remove('visible'), ms);
+      }
+
+      /* ── API ── */
+      async function fetchToken() {
+        const r = await fetch('/api/token', { method: 'POST' });
+        if (!r.ok) throw new Error('Token: ' + r.status);
+        return r.json();
+      }
+
+      async function sendChat(message) {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, conversation_id: conversationId }),
+        });
+        if (!r.ok) throw new Error('Chat: ' + r.status);
+        return r.json();
+      }
+
+      /* ── Process message ── */
+      async function processMessage(text) {
+        if (processing || !text.trim()) return;
+        processing = true;
+        console.log('[avatar] User:', text);
+        try {
+          const data = await sendChat(text.trim());
+          console.log('[avatar] Response:', data.response?.slice(0, 80));
+          if (data.conversation_id) conversationId = data.conversation_id;
+          if (session) await session.repeat(data.response);
+        } catch (err) {
+          console.error('[avatar] Error:', err);
+          showToast('Nepodařilo se získat odpověď. Zkus to znovu.');
+        } finally {
+          processing = false;
+        }
+      }
+
+      /* ── Speech Recognition ── */
+      function initSpeech() {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return null;
+        const rec = new SR();
+        rec.lang = 'cs-CZ';
+        rec.continuous = true;
+        rec.interimResults = true;
+
+        rec.onresult = (e) => {
+          let finalText = '';
+          for (let i = 0; i < e.results.length; i++) {
+            if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+          }
+          accumulatedTranscript = finalText;
+          clearTimeout(speechDebounce);
+          if (finalText) {
+            speechDebounce = setTimeout(() => {
+              if (accumulatedTranscript && !processing) {
+                const msg = accumulatedTranscript.trim();
+                accumulatedTranscript = '';
+                processMessage(msg);
+              }
+            }, 700);
+          }
+        };
+
+        rec.onerror = (e) => {
+          console.warn('[speech]', e.error);
+          if (e.error === 'not-allowed') {
+            showToast('Přístup k mikrofonu byl zamítnut.');
+            toggleMic(true);
+          }
+        };
+
+        rec.onend = () => {
+          if (micOn && session) {
+            try { rec.start(); } catch (_) {}
+          }
+        };
+
+        return rec;
+      }
+
+      function toggleMic(forceOff) {
+        if (forceOff === true || micOn) {
+          micOn = false;
+          btnMic.classList.remove('mic-active');
+          try { recognition?.stop(); } catch (_) {}
+        } else {
+          if (!recognition) recognition = initSpeech();
+          if (!recognition) {
+            showToast('Rozpoznávání řeči není v tomto prohlížeči podporováno.');
+            return;
+          }
+          micOn = true;
+          btnMic.classList.add('mic-active');
+          try { recognition.start(); } catch (_) {}
+        }
+      }
+
+      /* ── Session ── */
+      async function startSession() {
+        btnConnect.disabled = true;
+        landing.style.display = 'none';
+        sessionEl.classList.add('active');
+        connectingOv.classList.add('visible');
+        setStatus('', 'Připojuji…');
+
+        try {
+          const tokenData = await fetchToken();
+          console.log('[avatar] Token OK');
+
+          sdk = new LiveAvatarSDK.LiveAvatarClient({ quality: 'high' });
+          session = await sdk.createSession({ token: tokenData.token || tokenData });
+
+          session.on(LiveAvatarSDK.SessionEvent.SESSION_STREAM_READY, () => {
+            console.log('[avatar] Stream ready');
+            session.attach(videoEl);
+            videoEl.classList.add('active');
+            connectingOv.classList.remove('visible');
+            setStatus('live', 'Live');
+            setTimeout(() => {
+              session.repeat(WELCOME);
+              toggleMic();
+            }, 600);
+          });
+
+          session.on(LiveAvatarSDK.SessionEvent.AVATAR_SPEAK_STARTED, () => {
+            speakingBadge.classList.add('visible');
+          });
+
+          session.on(LiveAvatarSDK.SessionEvent.AVATAR_SPEAK_ENDED, () => {
+            speakingBadge.classList.remove('visible');
+          });
+
+          session.on(LiveAvatarSDK.SessionEvent.SESSION_ERROR, (err) => {
+            console.error('[avatar] Session error:', err);
+            showToast('Chyba spojení s avatarem.');
+            setStatus('', 'Chyba');
+          });
+
+          session.on(LiveAvatarSDK.SessionEvent.SESSION_ENDED, () => {
+            console.log('[avatar] Session ended');
+            endSession();
+          });
+
+          await session.start();
+        } catch (err) {
+          console.error('[avatar] Start error:', err);
+          showToast('Nepodařilo se připojit. Zkontroluj připojení.');
+          endSession();
+        }
+      }
+
+      function endSession() {
+        toggleMic(true);
+        if (session) { try { session.stop(); } catch (_) {} session = null; }
+        videoEl.classList.remove('active');
+        speakingBadge.classList.remove('visible');
+        connectingOv.classList.remove('visible');
+        sessionEl.classList.remove('active');
+        conversationId = null;
+        processing = false;
+        accumulatedTranscript = '';
+        landing.style.display = '';
+        btnConnect.disabled = false;
+        setStatus('', 'Offline');
+      }
+
+      /* ── Events ── */
+      btnConnect.addEventListener('click', startSession);
+      btnMic.addEventListener('click', () => { if (session) toggleMic(); });
+      btnEnd.addEventListener('click', endSession);
+      window.addEventListener('beforeunload', () => {
+        if (session) try { session.stop(); } catch (_) {}
+      });
+    })();
+  </script>
+</body>
+</html>

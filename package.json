@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "private": true,
+  "name": "avatar-katka",
+  "version": "1.0.0",
+  "dependencies": {
+    "vercel": "^50.32.3"
+  }
+}
