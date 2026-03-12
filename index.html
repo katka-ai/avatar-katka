@@ -657,6 +657,9 @@
     let recognition = null;
     let processing = false;
     let keepAliveInterval = null;
+    let sentenceQueue = [];
+    let avatarSpeaking = false;
+    let streamDone = false;
 
     function setStatus(state, text) {
       statusDot.className = 'status-dot' + (state === 'live' ? ' live' : '');
@@ -667,6 +670,34 @@
       toastEl.textContent = msg;
       toastEl.classList.add('visible');
       setTimeout(() => toastEl.classList.remove('visible'), ms);
+    }
+
+    /* ── Sentence queue: play sentences one-by-one through the avatar ── */
+    async function speakNext() {
+      if (avatarSpeaking || sentenceQueue.length === 0 || !session) return;
+      avatarSpeaking = true;
+      const sentence = sentenceQueue.shift();
+      console.log('[avatar] Speaking:', sentence.slice(0, 60));
+      setStatus('live', 'Katka mluví…');
+      try {
+        await session.repeat(sentence);
+      } catch (err) {
+        console.error('[avatar] repeat error:', err);
+        avatarSpeaking = false;
+        finishIfDone();
+      }
+    }
+
+    function finishIfDone() {
+      if (streamDone && sentenceQueue.length === 0 && !avatarSpeaking) {
+        processing = false;
+        if (micOn) {
+          try { recognition?.start(); } catch (_) {}
+          setStatus('live', 'Mikrofon zapnut');
+        } else {
+          setMic(true);
+        }
+      }
     }
 
     /* ── Web Speech API (cs-CZ) ── */
@@ -732,10 +763,13 @@
       }
     }
 
-    /* ── RAG pipeline ── */
+    /* ── RAG pipeline (streaming: sentence-by-sentence) ── */
     async function processMessage(text) {
       if (processing || !session) return;
       processing = true;
+      streamDone = false;
+      sentenceQueue = [];
+      avatarSpeaking = false;
       console.log('[avatar] User said:', text);
       setStatus('live', 'Přemýšlím…');
       try { recognition?.stop(); } catch (_) {}
@@ -745,19 +779,55 @@
         const r = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({ message: text, stream: true }),
         });
-        const data = await r.json();
-        console.log('[avatar] Chat response (' + (Date.now() - t0) + 'ms):', data.response?.slice(0, 80));
 
-        if (data.response && session) {
-          await session.repeat(data.response);
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop();
+
+          for (const part of parts) {
+            if (!part.trim()) continue;
+            let eventType = '', eventData = '';
+            for (const line of part.split('\n')) {
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              if (line.startsWith('data: ')) eventData = line.slice(6);
+            }
+            if (!eventType || !eventData) continue;
+
+            try {
+              const data = JSON.parse(eventData);
+              if (eventType === 'sentence') {
+                console.log(`[avatar] Sentence ${data.index} (${Date.now() - t0}ms):`, data.text.slice(0, 60));
+                sentenceQueue.push(data.text);
+                speakNext();
+              } else if (eventType === 'done') {
+                streamDone = true;
+                finishIfDone();
+              } else if (eventType === 'error') {
+                showToast('Chyba: ' + data.message);
+                processing = false;
+                streamDone = true;
+              }
+            } catch (_) {}
+          }
         }
+
+        streamDone = true;
+        finishIfDone();
       } catch (err) {
         console.error('[avatar] Chat error:', err);
         showToast('Chyba: ' + (err.message || err));
-      } finally {
         processing = false;
+        streamDone = true;
         if (micOn) {
           try { recognition?.start(); } catch (_) {}
           setStatus('live', 'Mikrofon zapnut');
@@ -822,9 +892,16 @@
 
         session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => {
           console.log('[avatar] Done speaking');
+          avatarSpeaking = false;
           speakingBadge.classList.remove('visible');
-          if (!micOn && !processing) {
-            setMic(true);
+
+          if (sentenceQueue.length > 0) {
+            speakNext();
+          } else {
+            finishIfDone();
+            if (!processing && !micOn) {
+              setMic(true);
+            }
           }
         });
 
@@ -842,6 +919,9 @@
     function endSession() {
       setMic(false);
       processing = false;
+      streamDone = true;
+      sentenceQueue = [];
+      avatarSpeaking = false;
       clearInterval(keepAliveInterval);
       if (session) {
         try { session.stop(); } catch (_) {}
