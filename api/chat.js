@@ -105,7 +105,7 @@ async function searchKB(queryEmb, supabaseUrl, serviceKey) {
   }).filter(Boolean);
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 5).filter(r => r.similarity > 0.35);
+  return scored.slice(0, 3).filter(r => r.similarity > 0.35);
 }
 
 async function callClaude(systemPrompt, userContent, apiKey) {
@@ -138,8 +138,13 @@ async function callClaude(systemPrompt, userContent, apiKey) {
   text = text.replace(/[-*#>•]+/g, '');
   text = text.replace(/\d+\.\s+/g, '');
   text = text.replace(/\s{2,}/g, ' ').trim();
-  const lastPunct = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
-  if (lastPunct > 20) text = text.slice(0, lastPunct + 1);
+  const sentences = text.match(/[^.!?]+[.!?]+/g);
+  if (sentences && sentences.length > 3) {
+    text = sentences.slice(0, 3).join('').trim();
+  } else {
+    const lastPunct = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
+    if (lastPunct > 20) text = text.slice(0, lastPunct + 1);
+  }
   return text;
 }
 
