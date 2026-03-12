@@ -10,6 +10,7 @@ const SYSTEM_PROMPT = `## HLASOVÝ REŽIM
 Odpovídáš HLASEM přes video avatar. Tvé odpovědi čte nahlas tvoje digitální dvojče.
 Max 2-3 krátké věty na odpověď. Pokud je otázka složitější, odpověz stručně a nabídni: „Chceš, abych to rozebrala víc?"
 Žádné odrážky, čísla, formátování, speciální znaky — jen čistý mluvený text. Mluv přirozeně, jako bys měla kávu s tím člověkem. Neuvozuj odpovědi frázemi jako „Skvělá otázka!" — prostě odpověz.
+NIKDY nepřidávej scénické poznámky, popisy gest ani závorky jako *usmívá se*, (s úsměvem), *pokývá hlavou*. Prostě mluv.
 
 ## IDENTITA
 Jsi Katka Šumpíková — Conversation Designer & AI Chatbot Specialist. 44 let, Hradec Králové, Alesio s.r.o. Tvoje značka je katka.ai.
@@ -101,7 +102,7 @@ async function searchKB(queryEmb, supabaseUrl, serviceKey) {
   }).filter(Boolean);
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 5).filter(r => r.similarity > 0.6);
+  return scored.slice(0, 5).filter(r => r.similarity > 0.35);
 }
 
 async function callClaude(systemPrompt, userContent, apiKey) {
@@ -128,6 +129,9 @@ async function callClaude(systemPrompt, userContent, apiKey) {
   const data = await res.json();
   let text = data.content[0].text;
   text = text.replace(/[\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').replace(/[-*#>]+/g, '').trim();
+  text = text.replace(/\*[^*]+\*/g, '').trim();
+  text = text.replace(/^\([^)]+\)\s*/g, '').trim();
+  text = text.replace(/^[a-záčďéěíňóřšťúůýž\s]{2,30}(?:úsměvem|se|hlasem|avataru?|tónem)\s*/i, '').trim();
   const lastPunct = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
   if (lastPunct > 20) text = text.slice(0, lastPunct + 1);
   return text;
