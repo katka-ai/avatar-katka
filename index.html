@@ -634,7 +634,7 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { LiveAvatarSession, SessionEvent, SessionState, AgentEventsEnum, VoiceChatEvent, VoiceChatState }
+    import { LiveAvatarSession, SessionEvent, SessionState, AgentEventsEnum }
       from 'https://esm.sh/@heygen/liveavatar-web-sdk@0.0.10';
 
     const $ = (sel) => document.querySelector(sel);
@@ -650,28 +650,129 @@
     const statusText   = $('#statusText');
     const toastEl      = $('#toast');
 
+    const WELCOME = 'Ahoj! Jsem Katka. Zeptej se mě na cokoliv o AI nebo chatbotech.';
+
     let session = null;
-    let micMuted = true;
+    let micOn = false;
+    let recognition = null;
+    let processing = false;
+    let keepAliveInterval = null;
 
     function setStatus(state, text) {
       statusDot.className = 'status-dot' + (state === 'live' ? ' live' : '');
       statusText.textContent = text;
     }
 
-    function showToast(msg, ms = 6000) {
+    function showToast(msg, ms = 5000) {
       toastEl.textContent = msg;
       toastEl.classList.add('visible');
       setTimeout(() => toastEl.classList.remove('visible'), ms);
     }
 
-    async function fetchToken() {
-      const r = await fetch('/api/token', { method: 'POST' });
-      if (!r.ok) throw new Error('Token error: ' + r.status);
-      const data = await r.json();
-      console.log('[avatar] Token keys:', Object.keys(data));
-      return data;
+    /* ── Web Speech API (cs-CZ) ── */
+    function initSpeech() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { showToast('Hlasové ovládání vyžaduje Chrome.', 8000); return null; }
+
+      const rec = new SR();
+      rec.lang = 'cs-CZ';
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      let accumulated = '';
+      let debounce = null;
+
+      rec.onresult = (e) => {
+        let finalText = '';
+        let interim = '';
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (interim) setStatus('live', 'Slyším: ' + interim.slice(0, 50) + '…');
+        accumulated = finalText;
+        clearTimeout(debounce);
+        if (finalText.trim()) {
+          debounce = setTimeout(() => {
+            const msg = accumulated.trim();
+            accumulated = '';
+            if (msg.length > 1 && !processing) processMessage(msg);
+          }, 800);
+        }
+      };
+
+      rec.onerror = (e) => {
+        console.warn('[speech] error:', e.error);
+        if (e.error === 'not-allowed') {
+          showToast('Povol přístup k mikrofonu v prohlížeči.');
+          setMic(false);
+        }
+      };
+
+      rec.onend = () => {
+        if (micOn && !processing) {
+          try { rec.start(); } catch (_) {}
+        }
+      };
+
+      return rec;
     }
 
+    function setMic(on) {
+      micOn = on;
+      if (on) {
+        btnMic.classList.add('mic-active');
+        if (!recognition) recognition = initSpeech();
+        if (recognition) try { recognition.start(); } catch (_) {}
+        setStatus('live', 'Mikrofon zapnut');
+      } else {
+        btnMic.classList.remove('mic-active');
+        try { recognition?.stop(); } catch (_) {}
+        setStatus('live', 'Live');
+      }
+    }
+
+    /* ── RAG pipeline ── */
+    async function processMessage(text) {
+      if (processing || !session) return;
+      processing = true;
+      console.log('[avatar] User said:', text);
+      setStatus('live', 'Přemýšlím…');
+      try { recognition?.stop(); } catch (_) {}
+
+      try {
+        const t0 = Date.now();
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
+        });
+        const data = await r.json();
+        console.log('[avatar] Chat response (' + (Date.now() - t0) + 'ms):', data.response?.slice(0, 80));
+
+        if (data.response && session) {
+          await session.repeat(data.response);
+        }
+      } catch (err) {
+        console.error('[avatar] Chat error:', err);
+        showToast('Chyba: ' + (err.message || err));
+      } finally {
+        processing = false;
+        if (micOn) {
+          try { recognition?.start(); } catch (_) {}
+          setStatus('live', 'Mikrofon zapnut');
+        }
+      }
+    }
+
+    /* ── Token ── */
+    async function fetchToken() {
+      const r = await fetch('/api/token', { method: 'POST' });
+      if (!r.ok) throw new Error('Token: ' + r.status);
+      return r.json();
+    }
+
+    /* ── Session ── */
     async function startSession() {
       btnConnect.disabled = true;
       landing.style.display = 'none';
@@ -682,95 +783,67 @@
       try {
         const tokenData = await fetchToken();
         const token = tokenData.data?.session_token || tokenData.session_token || tokenData.token;
-        if (!token) throw new Error('No session token in response');
-        console.log('[avatar] Token OK, len:', token.length);
+        if (!token) throw new Error('No session token');
+        console.log('[avatar] Token OK');
 
-        session = new LiveAvatarSession(token, {
-          voiceChat: true,
-        });
+        session = new LiveAvatarSession(token, { voiceChat: false });
 
         session.on(SessionEvent.SESSION_STREAM_READY, async () => {
-          console.log('[avatar] Stream ready — attaching video');
+          console.log('[avatar] Stream ready');
           session.attach(videoEl);
           videoEl.classList.add('active');
           connectingOv.classList.remove('visible');
           setStatus('live', 'Live');
 
-          try {
-            console.log('[avatar] Starting voiceChat...');
-            await session.voiceChat.start();
-            console.log('[avatar] voiceChat started, unmuting...');
-            await session.voiceChat.unmute();
-            micMuted = false;
-            btnMic.classList.add('mic-active');
-            console.log('[avatar] Mic unmuted — ready to listen');
-            setStatus('live', 'Mikrofon zapnut');
-          } catch (vcErr) {
-            console.error('[avatar] voiceChat start/unmute error:', vcErr);
-            showToast('Chyba mikrofonu: ' + (vcErr.message || vcErr));
-          }
+          keepAliveInterval = setInterval(() => {
+            if (session) try { session.keepAlive(); } catch (_) {}
+          }, 30000);
 
           setTimeout(async () => {
             try {
-              console.log('[avatar] Sending welcome repeat...');
-              await session.repeat('Ahoj! Jsem Katka. Zeptej se mě na cokoliv o AI nebo chatbotech.');
-              console.log('[avatar] Welcome sent');
+              console.log('[avatar] Sending welcome...');
+              await session.repeat(WELCOME);
+              console.log('[avatar] Welcome done');
             } catch (e) {
-              console.error('[avatar] repeat() error:', e);
+              console.error('[avatar] repeat error:', e);
             }
-          }, 2000);
+          }, 1500);
         });
 
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
-          console.log('[avatar] State changed:', state);
+          console.log('[avatar] State:', state);
           if (state === SessionState.DISCONNECTED) endSession();
         });
 
         session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
-          console.log('[avatar] Avatar speaking...');
+          console.log('[avatar] Speaking...');
           speakingBadge.classList.add('visible');
         });
+
         session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => {
-          console.log('[avatar] Avatar stopped speaking');
+          console.log('[avatar] Done speaking');
           speakingBadge.classList.remove('visible');
-        });
-        session.on(AgentEventsEnum.USER_SPEAK_STARTED, () => {
-          console.log('[avatar] User speaking detected!');
-          setStatus('live', 'Slyším tě…');
-        });
-        session.on(AgentEventsEnum.USER_SPEAK_ENDED, () => {
-          console.log('[avatar] User stopped speaking');
-          setStatus('live', 'Live');
+          if (!micOn && !processing) {
+            setMic(true);
+          }
         });
 
-        if (session.voiceChat) {
-          session.voiceChat.on(VoiceChatEvent.STATE_CHANGED, (s) => {
-            console.log('[avatar] VoiceChat state:', s);
-          });
-          session.voiceChat.on(VoiceChatEvent.MUTED, () => {
-            console.log('[avatar] VoiceChat MUTED');
-          });
-          session.voiceChat.on(VoiceChatEvent.UNMUTED, () => {
-            console.log('[avatar] VoiceChat UNMUTED');
-          });
-        }
-
-        console.log('[avatar] Calling session.start()...');
+        console.log('[avatar] Starting...');
         await session.start();
-        console.log('[avatar] session.start() resolved');
+        console.log('[avatar] Started');
 
       } catch (err) {
-        console.error('[avatar] FULL ERROR:', err);
+        console.error('[avatar] Error:', err);
         showToast('Nepodařilo se připojit: ' + (err.message || err));
         endSession();
       }
     }
 
     function endSession() {
-      micMuted = true;
-      btnMic.classList.remove('mic-active');
+      setMic(false);
+      processing = false;
+      clearInterval(keepAliveInterval);
       if (session) {
-        try { session.voiceChat?.stop(); } catch (_) {}
         try { session.stop(); } catch (_) {}
         session = null;
       }
@@ -783,25 +856,8 @@
       setStatus('', 'Offline');
     }
 
-    async function toggleMic() {
-      if (!session?.voiceChat) return;
-      try {
-        if (micMuted) {
-          await session.voiceChat.unmute();
-          micMuted = false;
-          btnMic.classList.add('mic-active');
-        } else {
-          await session.voiceChat.mute();
-          micMuted = true;
-          btnMic.classList.remove('mic-active');
-        }
-      } catch (e) {
-        console.error('[avatar] Mic toggle error:', e);
-      }
-    }
-
     btnConnect.addEventListener('click', startSession);
-    btnMic.addEventListener('click', toggleMic);
+    btnMic.addEventListener('click', () => { if (session) setMic(!micOn); });
     btnEnd.addEventListener('click', endSession);
     window.addEventListener('beforeunload', () => {
       if (session) try { session.stop(); } catch (_) {}
