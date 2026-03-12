@@ -53,7 +53,7 @@ const KB_CACHE_TTL = 5 * 60 * 1000;
 async function searchKB(queryEmb, supabaseUrl, serviceKey) {
   if (!kbCache || Date.now() - kbCacheTime > KB_CACHE_TTL) {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/avatar_kb_documents?select=id,title,content,embedding&is_active=eq.true`,
+      `${supabaseUrl}/rest/v1/avatar_kb_documents?select=id,title,content,embedding`,
       { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
     );
     if (!res.ok) {
