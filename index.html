@@ -542,8 +542,7 @@
     }
   </style>
 
-  <!-- LiveAvatar SDK -->
-  <script src="https://cdn.liveavatar.ai/sdk/web/index.js"></script>
+  <!-- LiveAvatar SDK (ES module via esm.sh) -->
 </head>
 <body>
 
@@ -634,218 +633,137 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script>
-    (function () {
-      'use strict';
+  <script type="module">
+    import { LiveAvatarSession, SessionEvent, SessionState, AgentEventsEnum }
+      from 'https://esm.sh/@heygen/liveavatar-web-sdk@0.0.10';
 
-      const $ = (sel) => document.querySelector(sel);
-      const landing      = $('#landing');
-      const sessionEl    = $('#session');
-      const videoEl      = $('#avatarVideo');
-      const connectingOv = $('#connectingOverlay');
-      const speakingBadge = $('#speakingBadge');
-      const btnConnect   = $('#btnConnect');
-      const btnMic       = $('#btnMic');
-      const btnEnd       = $('#btnEnd');
-      const statusDot    = $('#statusDot');
-      const statusText   = $('#statusText');
-      const toastEl      = $('#toast');
+    const $ = (sel) => document.querySelector(sel);
+    const landing      = $('#landing');
+    const sessionEl    = $('#session');
+    const videoEl      = $('#avatarVideo');
+    const connectingOv = $('#connectingOverlay');
+    const speakingBadge = $('#speakingBadge');
+    const btnConnect   = $('#btnConnect');
+    const btnMic       = $('#btnMic');
+    const btnEnd       = $('#btnEnd');
+    const statusDot    = $('#statusDot');
+    const statusText   = $('#statusText');
+    const toastEl      = $('#toast');
 
-      let session = null;
-      let sdk = null;
-      let conversationId = null;
-      let micOn = false;
-      let recognition = null;
-      let processing = false;
-      let speechDebounce = null;
-      let accumulatedTranscript = '';
+    let session = null;
+    let micMuted = true;
 
-      const WELCOME = 'Ahoj, já jsem Katka. Stavím digitální zaměstnance — AI chatboty, kteří pracují jako vaši nejlepší lidé. Na co se chceš zeptat?';
+    function setStatus(state, text) {
+      statusDot.className = 'status-dot' + (state === 'live' ? ' live' : '');
+      statusText.textContent = text;
+    }
 
-      function setStatus(state, text) {
-        statusDot.className = 'status-dot' + (state === 'live' ? ' live' : '');
-        statusText.textContent = text;
-      }
+    function showToast(msg, ms = 5000) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('visible');
+      setTimeout(() => toastEl.classList.remove('visible'), ms);
+    }
 
-      function showToast(msg, ms = 4000) {
-        toastEl.textContent = msg;
-        toastEl.classList.add('visible');
-        setTimeout(() => toastEl.classList.remove('visible'), ms);
-      }
+    async function fetchToken() {
+      const r = await fetch('/api/token', { method: 'POST' });
+      if (!r.ok) throw new Error('Token error: ' + r.status);
+      const data = await r.json();
+      console.log('[avatar] Token response keys:', Object.keys(data));
+      return data;
+    }
 
-      /* ── API ── */
-      async function fetchToken() {
-        const r = await fetch('/api/token', { method: 'POST' });
-        if (!r.ok) throw new Error('Token: ' + r.status);
-        return r.json();
-      }
+    async function startSession() {
+      btnConnect.disabled = true;
+      landing.style.display = 'none';
+      sessionEl.classList.add('active');
+      connectingOv.classList.add('visible');
+      setStatus('', 'Připojuji…');
 
-      async function sendChat(message) {
-        const r = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, conversation_id: conversationId }),
+      try {
+        const tokenData = await fetchToken();
+        const token = tokenData.data?.session_token || tokenData.session_token || tokenData.token;
+        if (!token) {
+          console.error('[avatar] No token found in:', tokenData);
+          throw new Error('No session token in response');
+        }
+        console.log('[avatar] Session token obtained, length:', token.length);
+
+        session = new LiveAvatarSession(token, {
+          voiceChat: true,
         });
-        if (!r.ok) throw new Error('Chat: ' + r.status);
-        return r.json();
-      }
 
-      /* ── Process message ── */
-      async function processMessage(text) {
-        if (processing || !text.trim()) return;
-        processing = true;
-        console.log('[avatar] User:', text);
-        try {
-          const data = await sendChat(text.trim());
-          console.log('[avatar] Response:', data.response?.slice(0, 80));
-          if (data.conversation_id) conversationId = data.conversation_id;
-          if (session) await session.repeat(data.response);
-        } catch (err) {
-          console.error('[avatar] Error:', err);
-          showToast('Nepodařilo se získat odpověď. Zkus to znovu.');
-        } finally {
-          processing = false;
-        }
-      }
-
-      /* ── Speech Recognition ── */
-      function initSpeech() {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) return null;
-        const rec = new SR();
-        rec.lang = 'cs-CZ';
-        rec.continuous = true;
-        rec.interimResults = true;
-
-        rec.onresult = (e) => {
-          let finalText = '';
-          for (let i = 0; i < e.results.length; i++) {
-            if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-          }
-          accumulatedTranscript = finalText;
-          clearTimeout(speechDebounce);
-          if (finalText) {
-            speechDebounce = setTimeout(() => {
-              if (accumulatedTranscript && !processing) {
-                const msg = accumulatedTranscript.trim();
-                accumulatedTranscript = '';
-                processMessage(msg);
-              }
-            }, 700);
-          }
-        };
-
-        rec.onerror = (e) => {
-          console.warn('[speech]', e.error);
-          if (e.error === 'not-allowed') {
-            showToast('Přístup k mikrofonu byl zamítnut.');
-            toggleMic(true);
-          }
-        };
-
-        rec.onend = () => {
-          if (micOn && session) {
-            try { rec.start(); } catch (_) {}
-          }
-        };
-
-        return rec;
-      }
-
-      function toggleMic(forceOff) {
-        if (forceOff === true || micOn) {
-          micOn = false;
-          btnMic.classList.remove('mic-active');
-          try { recognition?.stop(); } catch (_) {}
-        } else {
-          if (!recognition) recognition = initSpeech();
-          if (!recognition) {
-            showToast('Rozpoznávání řeči není v tomto prohlížeči podporováno.');
-            return;
-          }
-          micOn = true;
+        session.on(SessionEvent.SESSION_STREAM_READY, () => {
+          console.log('[avatar] Stream ready');
+          session.attach(videoEl);
+          videoEl.classList.add('active');
+          connectingOv.classList.remove('visible');
+          setStatus('live', 'Live');
+          session.voiceChat.unmute();
+          micMuted = false;
           btnMic.classList.add('mic-active');
-          try { recognition.start(); } catch (_) {}
-        }
-      }
+        });
 
-      /* ── Session ── */
-      async function startSession() {
-        btnConnect.disabled = true;
-        landing.style.display = 'none';
-        sessionEl.classList.add('active');
-        connectingOv.classList.add('visible');
-        setStatus('', 'Připojuji…');
-
-        try {
-          const tokenData = await fetchToken();
-          console.log('[avatar] Token OK');
-
-          sdk = new LiveAvatarSDK.LiveAvatarClient({ quality: 'high' });
-          session = await sdk.createSession({ token: tokenData.token || tokenData });
-
-          session.on(LiveAvatarSDK.SessionEvent.SESSION_STREAM_READY, () => {
-            console.log('[avatar] Stream ready');
-            session.attach(videoEl);
-            videoEl.classList.add('active');
-            connectingOv.classList.remove('visible');
-            setStatus('live', 'Live');
-            setTimeout(() => {
-              session.repeat(WELCOME);
-              toggleMic();
-            }, 600);
-          });
-
-          session.on(LiveAvatarSDK.SessionEvent.AVATAR_SPEAK_STARTED, () => {
-            speakingBadge.classList.add('visible');
-          });
-
-          session.on(LiveAvatarSDK.SessionEvent.AVATAR_SPEAK_ENDED, () => {
-            speakingBadge.classList.remove('visible');
-          });
-
-          session.on(LiveAvatarSDK.SessionEvent.SESSION_ERROR, (err) => {
-            console.error('[avatar] Session error:', err);
-            showToast('Chyba spojení s avatarem.');
-            setStatus('', 'Chyba');
-          });
-
-          session.on(LiveAvatarSDK.SessionEvent.SESSION_ENDED, () => {
-            console.log('[avatar] Session ended');
+        session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
+          console.log('[avatar] State:', state);
+          if (state === SessionState.DISCONNECTED) {
             endSession();
-          });
+          }
+        });
 
-          await session.start();
-        } catch (err) {
-          console.error('[avatar] Start error:', err);
-          showToast('Nepodařilo se připojit. Zkontroluj připojení.');
-          endSession();
-        }
+        session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
+          speakingBadge.classList.add('visible');
+        });
+
+        session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => {
+          speakingBadge.classList.remove('visible');
+        });
+
+        console.log('[avatar] Starting session...');
+        await session.start();
+        console.log('[avatar] Session started');
+
+      } catch (err) {
+        console.error('[avatar] Start error:', err);
+        showToast('Nepodařilo se připojit: ' + (err.message || err));
+        endSession();
       }
+    }
 
-      function endSession() {
-        toggleMic(true);
-        if (session) { try { session.stop(); } catch (_) {} session = null; }
-        videoEl.classList.remove('active');
-        speakingBadge.classList.remove('visible');
-        connectingOv.classList.remove('visible');
-        sessionEl.classList.remove('active');
-        conversationId = null;
-        processing = false;
-        accumulatedTranscript = '';
-        landing.style.display = '';
-        btnConnect.disabled = false;
-        setStatus('', 'Offline');
+    function endSession() {
+      if (session) {
+        try { session.stop(); } catch (_) {}
+        session = null;
       }
+      micMuted = true;
+      btnMic.classList.remove('mic-active');
+      videoEl.classList.remove('active');
+      speakingBadge.classList.remove('visible');
+      connectingOv.classList.remove('visible');
+      sessionEl.classList.remove('active');
+      landing.style.display = '';
+      btnConnect.disabled = false;
+      setStatus('', 'Offline');
+    }
 
-      /* ── Events ── */
-      btnConnect.addEventListener('click', startSession);
-      btnMic.addEventListener('click', () => { if (session) toggleMic(); });
-      btnEnd.addEventListener('click', endSession);
-      window.addEventListener('beforeunload', () => {
-        if (session) try { session.stop(); } catch (_) {}
-      });
-    })();
+    function toggleMic() {
+      if (!session) return;
+      if (micMuted) {
+        session.voiceChat.unmute();
+        micMuted = false;
+        btnMic.classList.add('mic-active');
+      } else {
+        session.voiceChat.mute();
+        micMuted = true;
+        btnMic.classList.remove('mic-active');
+      }
+    }
+
+    btnConnect.addEventListener('click', startSession);
+    btnMic.addEventListener('click', toggleMic);
+    btnEnd.addEventListener('click', endSession);
+    window.addEventListener('beforeunload', () => {
+      if (session) try { session.stop(); } catch (_) {}
+    });
   </script>
 </body>
 </html>
