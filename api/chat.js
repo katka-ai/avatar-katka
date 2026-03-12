@@ -220,7 +220,7 @@ export default async function handler(req) {
   } catch (err) {
     console.error('[chat] Error:', err);
     return new Response(
-      JSON.stringify({ error: 'Něco se pokazilo. Zkus to prosím znovu.' }),
+      JSON.stringify({ error: 'Něco se pokazilo. Zkus to prosím znovu.', debug: err.message }),
       {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
